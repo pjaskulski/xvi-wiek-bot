@@ -59,6 +59,10 @@ func fetchData() (string, error) {
 	if err != nil {
 		return "", err
 	}
+	if r.StatusCode >= 400 {
+		return "", fmt.Errorf("błąd %d. Brak danych lub niewłaściwe zapytanie", r.StatusCode)
+	}
+
 	defer r.Body.Close()
 	data, err := ioutil.ReadAll(r.Body)
 	if err != nil {
@@ -112,10 +116,6 @@ func main() {
 		ConsumerSecret:    os.Getenv("CONSUMER_SECRET"),
 	}
 
-	if alreadyPublished() {
-		log.Fatal("Dzisiaj już opublikowano wiadomość.")
-	}
-
 	message, err := fetchData()
 	if err != nil {
 		log.Fatal(err)
@@ -123,6 +123,10 @@ func main() {
 
 	if message == "" {
 		log.Fatal("Brak tekstu wiadomości.")
+	}
+
+	if alreadyPublished() {
+		log.Fatal("Dzisiaj już opublikowano wiadomość.")
 	}
 
 	client, err := getClient(&credentials)
