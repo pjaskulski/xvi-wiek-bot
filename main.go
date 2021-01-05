@@ -94,7 +94,7 @@ func alreadyPublished() bool {
 		log.Fatal(err)
 	}
 
-	fromFile := strings.Trim(string(chars), " \t")
+	fromFile := strings.Trim(string(chars), " \t\n")
 	if fromFile == today {
 		result = true
 	}
@@ -130,6 +130,16 @@ func main() {
 	configDir()
 
 	logFilePath = filepath.Join(homeDir, ".xvi-wiek-bot", "xvi-wiek-bot.log")
+	errFilePath := filepath.Join(homeDir, ".xvi-wiek-bot", "errors.log")
+
+	// zapis logów z błędami do pliku
+	f, err := os.OpenFile(errFilePath, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+	if err != nil {
+		log.Fatalf("Błąd przy próbie otwarcia pliku do logowania błędów: %v", err)
+	}
+	defer f.Close()
+	log.SetFlags(log.Ldate | log.Ltime | log.Lshortfile)
+	log.SetOutput(f)
 
 	credentials := Credentials{
 		AccessToken:       os.Getenv("ACCESS_TOKEN"),
