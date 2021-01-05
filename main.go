@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -28,10 +29,14 @@ type Fact struct {
 }
 
 var serverURL string = "http://xvi-wiek.pl"
+var homeDir string
+var logFilePath string
+var today string
 
-//var serverURL string = "http://localhost:8080"
+// do testów
+// var serverURL string = "http://localhost:8080"
 
-// klient Twittera
+// funkcja tworzy i zwraca instancję klienta Twittera
 func getClient(creds *Credentials) (*twitter.Client, error) {
 	config := oauth1.NewConfig(creds.ConsumerKey, creds.ConsumerSecret)
 	token := oauth1.NewToken(creds.AccessToken, creds.AccessTokenSecret)
@@ -52,7 +57,7 @@ func getClient(creds *Credentials) (*twitter.Client, error) {
 	return client, nil
 }
 
-// dane z serwera api xvi-wiek.pl
+// dane z serwera api xvi-wiek.pl lokalnie (bot uruchamiany na tym samym serwerze)
 func fetchData() (string, error) {
 
 	r, err := http.Get("http://localhost:8080/api/short")
@@ -83,9 +88,8 @@ func fetchData() (string, error) {
 // tylko raz dziennie
 func alreadyPublished() bool {
 	result := false
-	today := fmt.Sprintf("%04d-%02d-%02d", time.Now().Year(), time.Now().Month(), time.Now().Day())
 
-	chars, err := ioutil.ReadFile("tweets.log")
+	chars, err := ioutil.ReadFile(logFilePath)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -98,16 +102,34 @@ func alreadyPublished() bool {
 	return result
 }
 
+// sprawdza i ewentualnie tworzy katalog na pliki konfiguracyjne programu
+func configDir() {
+	path := filepath.Join(homeDir, ".xvi-wiek-bot")
+	if _, err := os.Stat(path); err != nil {
+		if os.IsNotExist(err) {
+			os.MkdirAll(path, os.ModePerm)
+		}
+	}
+}
+
+// odświeża zawartość pliku log z datą ostatniego tweeta
 func refreshPublished() {
-	today := fmt.Sprintf("%04d-%02d-%02d", time.Now().Year(), time.Now().Month(), time.Now().Day())
-	err := ioutil.WriteFile("tweets.log", []byte(today), 0644)
+	err := ioutil.WriteFile(logFilePath, []byte(today), 0644)
 	if err != nil {
 		log.Fatal(err)
 	}
 }
 
+// ----------------------------- main ---------------------------------------
 func main() {
 	fmt.Println("XVI-wiek Twitter Bot")
+
+	today = fmt.Sprintf("%04d-%02d-%02d", time.Now().Year(), time.Now().Month(), time.Now().Day())
+
+	homeDir, _ = os.UserHomeDir()
+	configDir()
+
+	logFilePath = filepath.Join(homeDir, ".xvi-wiek-bot", "xvi-wiek-bot.log")
 
 	credentials := Credentials{
 		AccessToken:       os.Getenv("ACCESS_TOKEN"),
@@ -132,12 +154,12 @@ func main() {
 	client, err := getClient(&credentials)
 	if err != nil {
 		log.Println("Błąd podczas próby utworzenia klienta Twittera.")
-		log.Println(err)
+		log.Fatal(err)
 	}
 
 	tweet, resp, err := client.Statuses.Update(message, nil)
 	if err != nil {
-		log.Println(err)
+		log.Fatal(err)
 	}
 
 	refreshPublished()
